@@ -8,6 +8,8 @@ import os
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ICON_PATH = os.path.join(BASE_DIR, "icon.ico")
+
 db_path = os.path.join(BASE_DIR, "FinanceData.db")
 dataBase = sqlite3.connect(db_path)
 
@@ -16,6 +18,9 @@ window.geometry("600x300")
 window.resizable(False, False)
 window.config(bg = "#FFFFFF")
 window.title("Simple Personal Finance Tracker")
+window.iconbitmap(ICON_PATH)
+
+QuestionnaireTaken = None
 
 class FinanceDB:
     def __init__(self):
@@ -35,11 +40,13 @@ class FinanceDB:
         """)
         
         data = self.fetchData()
+        global QuestionnaireTaken
 
-        if data["Columns"] == [] and data["Values"] == []:
+        if data["Columns"] == [] and data["Values"] == [] or 0 in data["Values"]:
+            QuestionnaireTaken = False
             self.insertData([0, 0, 0, 0, 0])
         else:
-            return
+            QuestionnaireTaken = True
 
     def insertData(self, data: int):
         self.cursor.execute("""INSERT INTO FinanceData (Income, Groceries, Rent, Electricity, SavePercent) VALUES (?, ?, ?, ?, ?)""", data)
@@ -61,6 +68,7 @@ class FinanceDB:
     def updateData(self, data: int, column: str):
         query = f"UPDATE FinanceData SET {column} = ?"
         self.cursor.execute(query, (data,))
+        dataBase.commit()
     
 
 class Animations:
@@ -269,6 +277,8 @@ class Dashboard:
             self.createGraph("scatter", 150, 150, expensesVsIncomeData, "Columns", "Values", "", "", None, None, 0.23, 0.14)
 
     def retakeQuestionairre(self):
+        QuestionnaireTaken = False
+
         self.mainLabel.destroy()
         self.graphCont.destroy()
         self.graphOptionMenuCont.destroy()
@@ -338,9 +348,16 @@ class Dashboard:
             self.retakeQuestionairreButton = ctk.CTkButton(self.statsFrame, width = 260, height = 28, fg_color = "#4A90E2", corner_radius = 3, text = "Retake Questionairre", command = self.retakeQuestionairre)
             self.retakeQuestionairreButton.place(x = 135, y = 161, anchor = "center")
 
-questions = ["What is your income?", "How much do you spend on groceries?", "What is your rent?", "How much do you spend on electricity", "What percent of your income do you save?"]
-questionnaire = Questionnaire(questions)
-questionnaire.Setup()                                                                                                                                                               
+db = FinanceDB()
+db.Setup()
+
+if QuestionnaireTaken == False:
+    questions = ["What is your income?", "How much do you spend on groceries?", "What is your rent?", "How much do you spend on electricity", "What percent of your income do you save?"]
+    questionnaire = Questionnaire(questions)
+    questionnaire.Setup()       
+elif QuestionnaireTaken:
+    dashboard = Dashboard()
+    dashboard.Setup()                                                                                                                                                        
 
 window.bind_all("<Button-1>", lambda event: event.widget.focus_set() if hasattr(event.widget, "focus_set") else None)
 
